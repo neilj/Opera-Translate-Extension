@@ -194,7 +194,7 @@ function showMessage ( data ) {
                 fromLang: data.langCode
             }
         });
-        label.textContent = 'Transmogrifying textual data…';
+        label.textContent = 'Translating page…';
         translateButton.style.display = 'none';
         cancelButton.style.visibility = 'hidden';
     }, false );
