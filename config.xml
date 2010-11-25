@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets">
+	<name>Translate</name>
+	<description>Make the whole web accessible: this extensions uses Google Translate to detect the language of each page you visit and offer to translate it if it is not in your native language.</description>
+	<author>neilj@opera.com</author>
+	<access origin="http://ajax.googleapis.com" />
+</widget>
