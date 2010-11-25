@@ -183,6 +183,7 @@
           source.postMessage({
               action: 'preferencesReset'
           });
+          homeLang = Translate.languages[ browserLang ] ? browserLang : 'en';
       },
       blanketPreferences: function ( data, source ) {
           for ( var lang in Translate.languages ) {
