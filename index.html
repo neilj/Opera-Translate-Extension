@@ -1,7 +1,203 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-  <script type="text/javascript" src="js/background.js"></script>
+    <script type="text/javascript" src="lib.js" charset="utf-8"></script>
+    <script type="text/javascript">
+( function() {
+
+  var storage = localStorage;
+
+  var browserLang = window.navigator.language;
+  var homeLang = storage.getItem( 'homeLang' ) ||
+    ( Translate.languages[ browserLang ] ? browserLang : 'en' );
+
+  var xhrManager = ( function() {
+      var pool = [];
+      return {
+          get: function () {
+              return pool.pop() || new XMLHttpRequest();
+          },
+          release: function( xhr ) {
+              xhr.onreadystatechange = function () {};
+              pool.push( xhr );
+          }
+      };
+  }() );
+
+  function getAnalysisUrl ( text ) {
+      var url = 
+              'http://ajax.googleapis.com/ajax/services/language/detect?v=1.0&q=';
+      text = encodeURIComponent( text );
+      if ( text.length > 1300 ) {
+          text = text.slice( 0, text.lastIndexOf( '%', 1300 ) );
+      }
+      url += text;
+      
+      return url;
+  }
+
+  function getTranslatePackets ( strings, from, to ) {
+      var packets = [],
+          i = 0,
+          l = strings.length;
+      while ( i < l ) {
+          // Set destination language
+          var packet = 'v=1.0&langpair=' + from + '%7C' + to;
+          var len = packet.length;
+
+          for ( var segments = 0;
+                  i < l && segments < 100; i += 1, segments += 1 ) {
+              var next = encodeURIComponent( strings[i] ),
+                  nextLen = next.length;
+              // If the text is too long, abort.
+              if ( nextLen > 4900 ) {
+                  return [];
+              }
+              // Google Translate requests have a 5000 character limit.
+              if ( len + nextLen > 4900 ) {
+                  break;
+              }
+              packet += '&q=';
+              packet += next;
+              len += nextLen;
+          }
+          packets.push( packet );
+      }
+      
+      return packets;
+  }
+
+  var actions = {
+      analyse: function ( text, source ) {
+          var xhr = xhrManager.get();
+          xhr.open( 'GET', getAnalysisUrl( text ), true );
+          xhr.onreadystatechange = function () {
+              if ( xhr.readyState < 4 ) return;
+              var result = JSON.parse( xhr.responseText ),
+                  data = result.responseData;
+              if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
+                      ( result.responseStatus === 200 ) ) {
+                  var language = data.language;
+                  if ( language !== homeLang ) {
+                      var langPref = storage.getItem( language ) || 'ask';
+                      if ( langPref === 'never' ) {
+                    	  // no translate
+                    	  source.postMessage({
+                              action: 'inNativeLanguage'
+                    	  });
+                      } else {
+                          // Request or auto translate
+                    	  source.postMessage({
+                              action: 'showMessage',
+                              data: {
+                                  homeLang: homeLang,
+                                  language: Translate.languages[ language ],
+                                  langCode: language,
+                                  preference: langPref
+                              }
+                          });
+                      }
+                  } else {
+                      source.postMessage({
+                          action: 'inNativeLanguage'
+                      });
+                  }
+              } else {
+                  source.postMessage({
+                      action: 'analysisFailed'
+                  });
+              }
+              xhrManager.release( xhr );
+          };
+          xhr.send();
+      },
+      translate: function ( data, source ) {
+     	  source.postMessage({
+              action: 'translationInProgress',
+              data: {
+                  homeLang: homeLang,
+                  language: Translate.languages[ data.fromLang ],
+     	          preference: storage.getItem( data.fromLang ) || 'ask'
+              }
+          });
+          
+          var xhr = xhrManager.get(),
+              strings = data.strings,
+              from = data.fromLang,
+              packets = getTranslatePackets( strings, from, homeLang ),
+              l = packets.length,
+              i = 0,
+              translatedStrings = [];
+
+          function send () {
+              xhr.open( 'POST', 
+                'http://ajax.googleapis.com/ajax/services/language/translate',
+                 true );
+              xhr.setRequestHeader( 'Content-type', 
+                  'application/x-www-form-urlencoded' );
+              xhr.send( packets[i] );
+          }
+          
+          xhr.onreadystatechange = function () {
+              if ( xhr.readyState < 4 ) return;
+              var result = JSON.parse( xhr.responseText ),
+                  data = result.responseData;
+                  
+              if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
+                      result.responseStatus === 200 ) {
+                  if ( !( data instanceof Array ) ) {
+                      data = [ data ];
+                  }
+                  Array.prototype.push.apply( translatedStrings, data.map(
+                      function( item ) {
+                          return item.responseStatus === 200 ? 
+                              item.responseData.translatedText : null;
+                      }
+                  ) );
+                  i += 1;
+                  if ( i < l ) {
+                      setTimeout( send, 0 );
+                  } else {
+                      source.postMessage({
+                          action: 'translate',
+                          data: translatedStrings
+                      });
+                      xhrManager.release( xhr );
+                  }
+              } else {
+                  source.postMessage({
+                      action: 'fail'
+                  });
+                  xhrManager.release( xhr );
+              }
+          };
+          send();
+      },
+      setPreference: function ( data, source ) {
+          if ( data.selection ) {
+              storage.setItem( data.fromLang, data.selection );
+          }
+      },
+      resetPreferences: function( data, source ) {
+          storage.clear();
+          source.postMessage({
+              action: 'preferencesReset'
+          })
+      },
+      setHomeLang: function( data, source ) {
+          homeLang = data;
+          storage.setItem( 'homeLang', data );
+      }
+  };
+
+  window.addEventListener( 'load', function () {
+      opera.extension.addEventListener( 'message', function ( msg ) {
+          actions[ msg.data.action ]( msg.data.data, msg.source );
+      }, false );
+  }, false );
+
+}() );
+  </script>
 </head>
 <body></body>
 </html>
