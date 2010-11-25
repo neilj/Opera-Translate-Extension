@@ -109,6 +109,15 @@ window.addEventListener( 'DOMContentLoaded', function () {
             action: 'resetPreferences'
         });
     }, false );
+    document.getElementById( 'blanketPreferences' ).addEventListener(
+            'click', function () {
+        opera.extension.postMessage({
+            action: 'blanketPreferences',
+            data: {
+            	value: 'always'
+            }
+        });
+    }, false );
     opera.extension.addEventListener( 'message', function ( msg ) {
         if ( msg.data.action === 'preferencesReset' ) {
             window.location.reload();

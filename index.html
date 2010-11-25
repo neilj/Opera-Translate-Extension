@@ -178,12 +178,20 @@
               storage.setItem( data.fromLang, data.selection );
           }
       },
-      resetPreferences: function( data, source ) {
+      resetPreferences: function ( data, source ) {
           storage.clear();
           source.postMessage({
               action: 'preferencesReset'
-          })
+          });
       },
+      blanketPreferences: function ( data, source ) {
+          for ( var lang in Translate.languages ) {
+        	storage.setItem( lang, data.value );
+          }
+          source.postMessage({
+              action: 'preferencesReset'
+          });
+      }, 	
       setHomeLang: function( data, source ) {
           homeLang = data;
           storage.setItem( 'homeLang', data );
