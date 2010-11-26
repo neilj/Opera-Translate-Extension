@@ -202,7 +202,7 @@ function showMessage ( data ) {
     cancelButton.addEventListener( 'click', function () {
         cleanup();
         hideMessage();
-    }, false );
+    }, true );
     
     // Auto-translate.
     if ( data.preference === 'always' ) {
@@ -232,12 +232,13 @@ function decodeEntities ( string, div ) {
     return div.textContent;
 }
 
-function translate ( translatedStrings ) {
+function translate ( translatedStrings, reset ) {
     var l = strings.length,
+    	r = reset || false,
         iterator = getIterator(),
         temp = document.createElement( 'div' ),
         textnode;
-    if ( !contentHasChanged ) {
+    if ( !contentHasChanged || r ) {
         // Fast path
         var i = 0;
         while ( ( textnode = iterator.nextNode() ) && i < l ) {
@@ -267,8 +268,11 @@ function translate ( translatedStrings ) {
     
     // Update bar to say is translated.
     label.textContent = 'Translation complete.';
-    cancelButton.textContent = 'Thanks!';
+    cancelButton.textContent = 'Show Original';
     cancelButton.style.visibility = 'visible';
+    cancelButton.addEventListener('click', function() {
+    	translate( strings, true );
+    }, true);
 }
 
 function fail () {
