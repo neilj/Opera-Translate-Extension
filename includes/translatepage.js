@@ -121,7 +121,8 @@ var strings = [],
     revertButton,
     closeButton,
     optionsSelect,
-    keyTriggers = {ctrl:false,shift:false};
+    keyTriggers = {ctrl:false,shift:false},
+    fromLangStr = 'Unkown';
     
 function cleanup () {}
     
@@ -135,6 +136,8 @@ function hideMessage () {
 }
 
 function showMessage ( data ) {
+
+    fromLangStr = data.language;
     
     // Collect strings before we modify the DOM
     ( function() {
@@ -325,7 +328,7 @@ function translate ( translatedStrings, reset ) {
     }
     
     // Update bar to say is translated.
-    label.textContent = 'Translation complete.';
+    label.textContent = 'This page has been translated from ' + fromLangStr;
     revertButton.textContent = 'Show Original';
     revertButton.style.visibility = 'visible';
     revertButton.addEventListener('click', function() {
