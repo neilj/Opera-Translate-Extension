@@ -75,8 +75,9 @@
               if ( xhr.readyState < 4 ) return;
               var result = JSON.parse( xhr.responseText ),
                   data = result.responseData;
+              opera.postError(Translate.languages[ data.language ] + " confidence: " + data.confidence);
               if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
-                      ( result.responseStatus === 200 ) ) {
+                      ( result.responseStatus === 200 && data.confidence > 0.15 ) ) {
                   var language = data.language;
                   if ( language !== homeLang ) {
                       var langPref = storage.getItem( language ) || 'ask';

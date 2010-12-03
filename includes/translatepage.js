@@ -80,26 +80,32 @@ function getIterator () {
     
 // 2. Check the language of the page.
 ( function() {
-    var els = document.querySelectorAll( 'h1, h2, h3, p, a' ),
-        text = '',
-        len = 0,
-        eltext;
-    
-    for ( var i = 0, l = els.length; i < l; i += 1 ) {
-        if ( i ) { text += ' '; }
-        eltext = els[i].textContent.replace(/\s\s*/g, ' ').trim();
-        text += eltext;
-        len += eltext.length + ( i ? 1 : 0 );
-        if ( len > 1400 ) { break; }
-    }
-    if ( text.length < 800 ) {
+	
+    var text = '';
+	
+	function getContent(type) {
+		var els = document.querySelectorAll( type ),
+			eltext;
+		for ( var i = 0, l = els.length; i < l; i += 1 ) {
+	        if ( i ) { text += ' '; }
+	        eltext = els[i].textContent.replace(/\s\s*/g, ' ').trim();
+	        text += eltext;
+	        if ( text.length > 800 ) { break; }
+	    }
+	}
+
+	getContent( 'p' );
+	if( text.length < 400 ) {
+		getContent( 'h1, h2, h3, a' );
+	}
+    if ( text.length < 400 ) {
         text = document.body.textContent
             .replace(/\s\s*/g, ' ')
-            .slice( 0, 1400 );
+            .slice( 0, 800 );
     }
     opera.extension.postMessage({
         action: 'analyse',
-        data: text
+        data: text.slice( 0, 800 )
     });
 }() );
 
@@ -149,8 +155,8 @@ function showMessage ( data ) {
             style: 'padding: 1px 5px; margin: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;'
         }),
         revertButton = Element.create( 'button', {
-            text: 'Show Original',
-            style: 'padding: 1px 5px; margin-right: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd; visibility: hidden;'
+            text: 'Nope',
+            style: 'padding: 1px 5px; margin-right: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;'
         }),
         optionsSelect = Element.create( 'select', {
             style:
@@ -206,7 +212,6 @@ function showMessage ( data ) {
     }, false );
     
     revertButton.addEventListener( 'click', function () {
-    	translate( strings, true );
         cleanup();
         hideMessage();
     }, true );
@@ -245,7 +250,7 @@ function showMessage ( data ) {
     document.addEventListener('keydown', function (e) {
     	if(e.which == 17) keyTriggers.ctrl=true;
     	if(e.which == 16) keyTriggers.shift=true;
-    	if(( e.which == 67 && keyTriggers.ctrl == true && keyTriggers.shift == true )
+    	if(( e.which == 88 && keyTriggers.ctrl == true && keyTriggers.shift == true )
     			&& !div.removed) {
     		if(div.style.top==='0px') {
     			div.style.top = '-34px';
@@ -300,6 +305,7 @@ function translate ( translatedStrings, reset ) {
     
     // Update bar to say is translated.
     label.textContent = 'Translation complete.';
+    revertButton.textContent = 'Show Original';
     revertButton.style.visibility = 'visible';
     revertButton.addEventListener('click', function() {
     	translate( strings, true );
@@ -307,9 +313,9 @@ function translate ( translatedStrings, reset ) {
 }
 
 function fail () {
-    label.textContent = 'Oh dear! I\'m afraid the translation failed.';
+    label.textContent = 'A translation error occurred!';
     translateButton.textContent = 'Try again';
-    revertButton.textContent = 'Never mind';
+    revertButton.textContent = 'Cancel';
     translateButton.style.display = '';
     revertButton.style.visibility = 'visible';
 }
