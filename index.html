@@ -68,14 +68,19 @@
   }
 
   var actions = {
-      analyse: function ( text, source ) {
+      analyse: function ( data, source ) {
+          if ( data.protocol === 'https:' && storage.getItem( 'https' ) !== '1' ) {
+        	  source.postMessage({
+                  action: 'analysisFailed'
+              });
+              return;
+          }
           var xhr = xhrManager.get();
-          xhr.open( 'GET', getAnalysisUrl( text ), true );
+          xhr.open( 'GET', getAnalysisUrl( data.text ), true );
           xhr.onreadystatechange = function () {
               if ( xhr.readyState < 4 ) return;
               var result = JSON.parse( xhr.responseText ),
                   data = result.responseData;
-              opera.postError(Translate.languages[ data.language ] + " confidence: " + data.confidence);
               if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
                       ( result.responseStatus === 200 && data.confidence > 0.15 ) ) {
                   var language = data.language;
@@ -173,6 +178,9 @@
               }
           };
           send();
+      },
+      openPreferences: function ( data, source ) {
+          opera.extension.tabs.create( { url: 'options.html', focused: true } );
       },
       setPreference: function ( data, source ) {
           if ( data.selection ) {

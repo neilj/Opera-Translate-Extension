@@ -1,5 +1,6 @@
 // ==UserScript==
 // @include http://*
+// @include https://*
 // ==/UserScript==
 
 /*global window, document, opera */
@@ -105,7 +106,10 @@ function getIterator () {
     }
     opera.extension.postMessage({
         action: 'analyse',
-        data: text.slice( 0, 800 )
+        data: {
+    		text: text.slice( 0, 800 ),
+    		protocol: window.location.protocol
+    	}
     });
 }() );
 
@@ -160,7 +164,7 @@ function showMessage ( data ) {
         }),
         optionsSelect = Element.create( 'select', {
             style:
-                'position: absolute; right: 36px; top: 6px; padding: 2px 0;'
+                'position: absolute; right: 36px; top: 6px; padding: 2px 0; font: 12px/20px "Lucida Grande", Arial, sans-serif; text-align: left; color: #000;'
         }, [
             Element.create( 'option', {
                 text: 'Always translate ' + data.language,
@@ -179,6 +183,16 @@ function showMessage ( data ) {
                 style: 'padding: 2px 0;',
                 value: 'never',
                 selected: data.preference === 'never' ? 'selected' : null
+            }),
+            Element.create( 'option', {
+                text: '-----',
+                style: 'padding: 2px 0;',
+                value: ''
+            }),
+            Element.create( 'option', {
+                text: 'More options...',
+                style: 'padding: 2px 0;',
+                value: 'more'
             })
         ] 
       ),
@@ -189,13 +203,20 @@ function showMessage ( data ) {
     ]);
     
     optionsSelect.addEventListener( 'change', function () {
-        opera.extension.postMessage({
-            action: 'setPreference',
-            data: {
-        		selection: optionsSelect.value,
-        		fromLang: data.langCode
-        	}
-        });
+    	if( optionsSelect.value === '' ) return;
+    	if( optionsSelect.value === 'more' ) {
+    		opera.extension.postMessage({
+ 	            action: 'openPreferences'
+    		});
+    	} else {
+	        opera.extension.postMessage({
+	            action: 'setPreference',
+	            data: {
+	        		selection: optionsSelect.value,
+	        		fromLang: data.langCode
+	        	}
+	        });
+    	}
     }, false );
     
     translateButton.addEventListener( 'click', function () {

@@ -49,7 +49,13 @@ window.addEventListener( 'DOMContentLoaded', function () {
         // Set value
         storage.setItem( name, value );
     }
-
+    
+    if( storage.getItem( 'https' ) === '1' ) {
+    	document.getElementById( 'httpsOn' ).checked = 'checked';
+    } else {
+    	document.getElementById( 'httpsOff' ).checked = 'checked';
+    }
+    
     var optList = document.getElementById( 'optionsList' );
     var homeLangSelect = document.getElementById( 'homeLang' ),
         browserLang = window.navigator.language,
@@ -117,6 +123,14 @@ window.addEventListener( 'DOMContentLoaded', function () {
             	value: 'always'
             }
         });
+    }, false );
+    document.getElementById( 'httpsOn' ).addEventListener(
+    		'change', function () {
+    	storage.setItem( 'https', '1' );
+    }, false );
+    document.getElementById( 'httpsOff' ).addEventListener(
+    		'change', function () {
+    	storage.setItem( 'https', '0' );
     }, false );
     opera.extension.addEventListener( 'message', function ( msg ) {
         if ( msg.data.action === 'preferencesReset' ) {
