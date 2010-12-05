@@ -115,10 +115,11 @@ function getIterator () {
 
 var strings = [],
     contentHasChanged = false,
+    isTranslated = false,
     div,
     label,
     translateButton,
-    revertButton,
+    cancelButton,
     closeButton,
     optionsSelect,
     keyTriggers = {ctrl:false,shift:false},
@@ -159,11 +160,11 @@ function showMessage ( data ) {
     
         translateButton = Element.create( 'button', {
             text: 'Translate',
-            style: 'padding: 1px 5px; margin: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;'
+            style: 'padding: 1px 5px; margin: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;font: 12px/20px "Lucida Grande", Arial, sans-serif;'
         }),
-        revertButton = Element.create( 'button', {
+        cancelButton = Element.create( 'button', {
             text: 'Nope',
-            style: 'padding: 1px 5px; margin-right: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;'
+            style: 'padding: 1px 5px; margin-right: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;font: 12px/20px "Lucida Grande", Arial, sans-serif;'
         }),
         optionsSelect = Element.create( 'select', {
             style:
@@ -190,7 +191,7 @@ function showMessage ( data ) {
             Element.create( 'option', {
                 text: '-----',
                 style: 'padding: 2px 0;',
-                value: ''
+                disabled: 'disabled'
             }),
             Element.create( 'option', {
                 text: 'More options...',
@@ -206,11 +207,11 @@ function showMessage ( data ) {
     ]);
     
     optionsSelect.addEventListener( 'change', function () {
-    	if( optionsSelect.value === '' ) return;
-    	if( optionsSelect.value === 'more' ) {
+    	if ( optionsSelect.value === 'more' ) {
     		opera.extension.postMessage({
  	            action: 'openPreferences'
     		});
+    		optionsSelect.value = data.preference;
     	} else {
 	        opera.extension.postMessage({
 	            action: 'setPreference',
@@ -223,24 +224,25 @@ function showMessage ( data ) {
     }, false );
     
     translateButton.addEventListener( 'click', function () {
-        opera.extension.postMessage( {
-            action: 'translate',
-            data: {
-                strings: strings,
-                fromLang: data.langCode
-            }
-        });
-        label.textContent = 'Translating page…';
-        translateButton.style.display = 'none';
-        revertButton.style.visibility = 'hidden';
+        if ( isTranslated ) {
+            translate( strings, true );
+            cleanup();
+            hideMessage();
+        } else {
+            opera.extension.postMessage( {
+                action: 'translate',
+                data: {
+                    strings: strings,
+                    fromLang: data.langCode
+                }
+            });
+            label.textContent = 'Translating page…';
+            translateButton.style.display = 'none';
+            cancelButton.style.visibility = 'hidden';
+        }
     }, false );
     
-    revertButton.addEventListener( 'click', function () {
-        cleanup();
-        hideMessage();
-    }, true );
-    
-    closeButton.addEventListener( 'click', function () {
+    cancelButton.addEventListener( 'click', function () {
         cleanup();
         hideMessage();
     }, false );
@@ -268,15 +270,17 @@ function showMessage ( data ) {
     }, true );
     
     // Add show/hide translate bar toggle
-    document.addEventListener('keyup', function (e) {
+    document.addEventListener( 'keyup', function ( e ) {
     	keyTriggers.ctrl = keyTriggers.shift = false;
     }, true);
-    document.addEventListener('keydown', function (e) {
-    	if(e.which == 17) keyTriggers.ctrl=true;
-    	if(e.which == 16) keyTriggers.shift=true;
-    	if(( e.which == 88 && keyTriggers.ctrl == true && keyTriggers.shift == true )
+    
+    document.addEventListener( 'keydown', function ( e ) {
+    	if ( e.which === 17 ) { keyTriggers.ctrl = true; }
+    	if ( e.which === 16 ) { keyTriggers.shift = true; }
+    	if ( ( e.which === 88 &&
+    	    keyTriggers.ctrl === true && keyTriggers.shift === true )
     			&& !div.removed) {
-    		if(div.style.top==='0px') {
+    		if( div.style.top === '0px' ) {
     			div.style.top = '-34px';
     		    document.body.style.top = '0';
     		} else {
@@ -285,7 +289,7 @@ function showMessage ( data ) {
     		}
     		return false;
     	}
-    }, true);
+    }, true );
 }
 
 function decodeEntities ( string, div ) {
@@ -295,17 +299,17 @@ function decodeEntities ( string, div ) {
 
 function translate ( translatedStrings, reset ) {
     var l = strings.length,
-    	r = reset || false,
         iterator = getIterator(),
         temp = document.createElement( 'div' ),
         textnode;
-    if ( !contentHasChanged || r ) {
+    if ( !contentHasChanged || reset ) {
         // Fast path
         var i = 0;
         while ( ( textnode = iterator.nextNode() ) && i < l ) {
             if ( translatedStrings[i] ) {
                 textnode.textContent =
-                    decodeEntities( translatedStrings[i], temp );
+                    reset ? translatedStrings[i] :
+                        decodeEntities( translatedStrings[i], temp );
             }
             i += 1;
         }
@@ -327,21 +331,22 @@ function translate ( translatedStrings, reset ) {
         }
     }
     
-    // Update bar to say is translated.
+    // Update bar to say it is translated.
     label.textContent = 'This page has been translated from ' + fromLangStr;
-    revertButton.textContent = 'Show Original';
-    revertButton.style.visibility = 'visible';
-    revertButton.addEventListener('click', function() {
-    	translate( strings, true );
-    }, true);
+    translateButton.textContent = 'Show Original';
+    cancelButton.textContent = 'Done';
+    translateButton.style.display = '';
+    cancelButton.style.visibility = 'visible';
+    
+    isTranslated = !isTranslated;
 }
 
 function fail () {
-    label.textContent = 'A translation error occurred!';
+    label.textContent = 'Oh dear! I\'m afraid the translation failed.';
     translateButton.textContent = 'Try again';
-    revertButton.textContent = 'Cancel';
+    cancelButton.textContent = 'Never mind';
     translateButton.style.display = '';
-    revertButton.style.visibility = 'visible';
+    cancelButton.style.visibility = 'visible';
 }
 
 opera.extension.addEventListener( 'message', function( message ) {
