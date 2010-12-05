@@ -4,5 +4,5 @@
   <description>Make the whole web accessible: this extensions uses Google Translate to detect the language of each page you visit and offer to translate it if it is not in your native language.</description>
   <author email="neilj@opera.com">Neil Jenkins and Rich Tibbett</author>
   <icon src="icon_64x64.png"/>
-  <access origin="http://ajax.googleapis.com"/>
+  <access origin="https://ajax.googleapis.com"/>
 </widget>

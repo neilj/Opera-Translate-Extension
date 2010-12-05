@@ -26,7 +26,7 @@
 
   function getAnalysisUrl ( text ) {
       var url = 
-              'http://ajax.googleapis.com/ajax/services/language/detect?v=1.0&q=';
+              'https://ajax.googleapis.com/ajax/services/language/detect?v=1.0&q=';
       text = encodeURIComponent( text );
       if ( text.length > 1300 ) {
           text = text.slice( 0, text.lastIndexOf( '%', 1300 ) );
@@ -137,7 +137,7 @@
 
           function send () {
               xhr.open( 'POST', 
-                'http://ajax.googleapis.com/ajax/services/language/translate',
+                'https://ajax.googleapis.com/ajax/services/language/translate',
                  true );
               xhr.setRequestHeader( 'Content-type', 
                   'application/x-www-form-urlencoded' );
