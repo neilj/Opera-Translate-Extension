@@ -58,18 +58,18 @@ window.addEventListener( 'DOMContentLoaded', function () {
 
 // An iterator that returns all text nodes which do not just
 // contain white space and are not a child of style or script elements.
-function getIterator () {
+function getIterator ( root ) {
     var NodeFilter = window.NodeFilter,
         Node = window.Node,
-        body = document.body;
-    return document.createNodeIterator( body, NodeFilter.SHOW_TEXT, {
+        target = root || document.body;
+    return document.createNodeIterator( target, NodeFilter.SHOW_TEXT, {
         acceptNode: function ( node ) {
             if ( /^\s*$/.test( node.textContent ) ||
                     node.parentNode.nodeType !== Node.ELEMENT_NODE ) {
                 return NodeFilter.FILTER_REJECT;
             }
-            while ( ( node = node.parentNode ) !== body ) {
-                var tag = node.nodeName;
+            while ( ( node = node.parentNode ) !== target ) {
+                var tag = node ? node.nodeName : 'SCRIPT';
                 if ( tag === 'SCRIPT' || tag === 'STYLE' ) {
                     return NodeFilter.FILTER_REJECT;
                 }
@@ -113,7 +113,8 @@ function getIterator () {
     });
 }() );
 
-var strings = [],
+var transactions = [], // stores translate transactions
+	masterTransactionIDs = [],
     contentHasChanged = false,
     isTranslated = false,
     div,
@@ -123,7 +124,7 @@ var strings = [],
     closeButton,
     optionsSelect,
     keyTriggers = {ctrl:false,shift:false},
-    fromLangStr = 'Unkown';
+    fromLang = { code: '', value: 'Unknown' };
     
 function cleanup () {}
     
@@ -136,26 +137,54 @@ function hideMessage () {
     document.body.style.top = '0';
 }
 
+function createTransaction( target, inline ) {
+	var transaction_id = Math.floor(Math.random()*1e16);
+	
+	var textnode,
+    	strings = [],
+        iterator = getIterator( target );
+    while ( ( textnode = iterator.nextNode() ) ) {
+        strings.push( textnode.textContent );
+    }
+    iterator.detach();
+    
+    // Store transaction
+    transactions[transaction_id] = { 
+		target: document.body, 
+		"inline": inline || false,
+		originalStrings: strings,
+		translatedStrings: []
+    };
+    
+    opera.postError('Transaction created: ' + transaction_id);
+	
+	return transaction_id;
+}
+
 function showMessage ( data ) {
 
-    fromLangStr = data.language;
+    fromLang = { code: data.langCode, value: data.language };
     
     // Collect strings before we modify the DOM
     ( function() {
-        var textnode,
-            iterator = getIterator();
-        while ( ( textnode = iterator.nextNode() ) ) {
-            strings.push( textnode.textContent );
-        }
-        iterator.detach();
+    	if (document.body.hasChildNodes()) {
+    		var bodyChildren = document.body.childNodes;
+    		for (var i = 0, l = bodyChildren.length; i < l; i++) {
+    			var transaction_id = createTransaction( bodyChildren[i], false );
+    			masterTransactionIDs.push( transaction_id );
+    		}
+    	} else {
+    		var transaction_id = createTransaction( document.body, false );
+    		masterTransactionIDs.push( transaction_id );
+    	}
     }() );
          
     div = Element.create( 'div', {
-        style: 'color: #000; position: fixed; height: 24px; top: -34px; left: 0; right: 0; padding: 5px 10px; background: #CACDD5; color: #000; border-bottom: 1px solid #000; z-index: 20000; font: 12px/20px "Lucida Grande", Arial, sans-serif; text-align: left; -o-transition: top 0.3s ease-in-out;'
+        style: 'color: #000; position: fixed; height: 24px; top: -34px; left: 0; right: 0; padding: 5px 10px; background: #CACDD5; color: #000; border-bottom: 1px solid #000; z-index: 999999999999; font: 12px/20px "Lucida Grande", Arial, sans-serif; text-align: left; -o-transition: top 0.3s ease-in-out;'
     }, [
         label = Element.create( 'span', {
             style: 'padding: 0; margin: 0 8px 0 0;',
-            text: 'This page appears to be written in ' + data.language + '.'
+            text: 'This page appears to be written in ' + fromLang.value + '.'
         }),
     
         translateButton = Element.create( 'button', {
@@ -171,19 +200,19 @@ function showMessage ( data ) {
                 'position: absolute; right: 36px; top: 6px; padding: 2px 0; font: 12px/20px "Lucida Grande", Arial, sans-serif; text-align: left; color: #000;'
         }, [
             Element.create( 'option', {
-                text: 'Always translate ' + data.language,
+                text: 'Always translate ' + fromLang.value,
                 style: 'padding: 2px 0;',
                 value: 'always',
                 selected: data.preference === 'always' ? 'selected' : null
             }),
             Element.create( 'option', {
-                text: 'Ask before translating ' + data.language,
+                text: 'Ask before translating ' + fromLang.value,
                 style: 'padding: 2px 0;',
                 value: 'ask',
                 selected: data.preference === 'ask' ? 'selected' : null
             }),
             Element.create( 'option', {
-                text: 'Never translate ' + data.language,
+                text: 'Never translate ' + fromLang.value,
                 style: 'padding: 2px 0;',
                 value: 'never',
                 selected: data.preference === 'never' ? 'selected' : null
@@ -225,15 +254,18 @@ function showMessage ( data ) {
     
     translateButton.addEventListener( 'click', function () {
         if ( isTranslated ) {
-            translate( strings, true );
+        	for(var i = 0, l = masterTransactionIDs.length; i < l; i++) {
+        		translate( masterTransactionIDs[i], true );
+        	}
             cleanup();
             hideMessage();
         } else {
-            opera.extension.postMessage( {
+        	opera.extension.postMessage({
                 action: 'translate',
                 data: {
-                    strings: strings,
-                    fromLang: data.langCode
+                	id: masterTransactionIDs[0],
+                    strings: transactions[ masterTransactionIDs[0] ].originalStrings,
+                    "fromLang": fromLang.code
                 }
             });
             label.textContent = 'Translating page…';
@@ -243,6 +275,11 @@ function showMessage ( data ) {
     }, false );
     
     cancelButton.addEventListener( 'click', function () {
+        cleanup();
+        hideMessage();
+    }, false );
+    
+    closeButton.addEventListener( 'click', function () {
         cleanup();
         hideMessage();
     }, false );
@@ -297,9 +334,14 @@ function decodeEntities ( string, div ) {
     return div.textContent;
 }
 
-function translate ( translatedStrings, reset ) {
-    var l = strings.length,
-        iterator = getIterator(),
+function translate ( transaction_id, reset ) {
+	opera.postError('Transaction matched: ' + transaction_id);
+	
+    var l = transactions[transaction_id].originalStrings.length,
+        iterator = getIterator( transactions[transaction_id].target ),
+        translatedStrings = (reset ? 
+        						transactions[transaction_id].originalStrings : 
+        							transactions[transaction_id].translatedStrings),
         temp = document.createElement( 'div' ),
         textnode;
     if ( !contentHasChanged || reset ) {
@@ -320,7 +362,7 @@ function translate ( translatedStrings, reset ) {
         while ( l-- ) {
             translation = translatedStrings[l];
             if ( translation ) {
-                translated[ strings[l] ] = translation;
+                translated[ transactions[transaction_id].originalStrings[l] ] = translation;
             }
         }
         while ( ( textnode = iterator.nextNode() ) ) {
@@ -331,22 +373,83 @@ function translate ( translatedStrings, reset ) {
         }
     }
     
-    // Update bar to say it is translated.
-    label.textContent = 'This page has been translated from ' + fromLangStr;
-    translateButton.textContent = 'Show Original';
-    cancelButton.textContent = 'Done';
-    translateButton.style.display = '';
-    cancelButton.style.visibility = 'visible';
+    opera.postError('No. of master transactions left: ' + masterTransactionIDs.length);
     
-    isTranslated = !isTranslated;
+    if( masterTransactionIDs.length > 0 ) {
+    	// Remove transaction if it's a part of the master transactions
+    	masterTransactionIDs.splice(0, 1);
+    	
+    	// Post next translation part:
+    	opera.extension.postMessage( {
+            action: 'translate',
+            data: {
+            	id: masterTransactionIDs[0],
+                strings: transactions[ masterTransactionIDs[0] ].originalStrings,
+                "fromLang": fromLang.code
+            }
+        });
+    } else {
+    	opera.postError('master translation complete!');
+	    // Update bar to say it is translated.
+	    label.textContent = 'This page has been translated from ' + fromLang.value;
+	    translateButton.textContent = 'Show Original';
+	    cancelButton.textContent = 'Done';
+	    translateButton.style.display = '';
+	    cancelButton.style.visibility = 'visible';
+	    
+	    
+	    // Insert AJAX change listener
+	    document.addEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
+	    
+	    isTranslated = true;
+    }
 }
 
-function fail () {
-    label.textContent = 'Oh dear! I\'m afraid the translation failed.';
-    translateButton.textContent = 'Try again';
-    cancelButton.textContent = 'Never mind';
-    translateButton.style.display = '';
-    cancelButton.style.visibility = 'visible';
+function ajaxTranslate( evt ) {
+	
+	// Ignore content removal (attrChange REMOVAL is 3)
+	if( !isTranslated || evt.attrChange === 3 ) return;
+
+	opera.postError('Going for AJAX translate');
+	
+	var changeNode = evt.relatedNode;
+	// Fix text nodes (Node.TEXT_NODE is 3)
+	if(changeNode === 3) changeNode = changeNode.parentNode;
+	var textnode,
+		strings = [],
+		iterator = getIterator( changeNode );
+	
+	while ( ( textnode = iterator.nextNode() ) ) {
+		strings.push( textnode.textContent );
+    }
+    iterator.detach();
+	
+    // store the transaction
+    var transaction_id = createTransaction( changeNode, true );
+
+    opera.postError('Transaction created: ' + transaction_id);
+    
+    // send request
+    opera.extension.postMessage({
+    	action: 'translate',
+    	data: {
+    		id: transaction_id,
+    		strings: transactions[transaction_id].originalStrings,
+    		"fromLang": fromLang.code
+    	}
+    });
+    
+    document.removeEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
+}
+
+function fail ( transaction_id ) {
+	if( masterTransactionIDs[transaction_id] ) {
+	    label.textContent = 'Oh dear! I\'m afraid the translation failed.';
+	    translateButton.textContent = 'Try again';
+	    cancelButton.textContent = 'Never mind';
+	    translateButton.style.display = '';
+	    cancelButton.style.visibility = 'visible';
+	}
 }
 
 opera.extension.addEventListener( 'message', function( message ) {
@@ -361,10 +464,11 @@ opera.extension.addEventListener( 'message', function( message ) {
             showMessage( message.data.data );
             break;
         case 'translate':
-            translate( message.data.data );
+        	transactions[message.data.data.id].translatedStrings = message.data.data.translatedStrings;
+            translate( message.data.data.id );
             break;
         case 'fail':
-            fail();
+       		fail( message.data.data.id );
             break;              
     }
 }, false );

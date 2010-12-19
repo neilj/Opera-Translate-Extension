@@ -118,14 +118,8 @@
           xhr.send();
       },
       translate: function ( data, source ) {
-     	  source.postMessage({
-              action: 'translationInProgress',
-              data: {
-                  homeLang: homeLang,
-                  language: Translate.languages[ data.fromLang ],
-     	          preference: storage.getItem( data.fromLang ) || 'ask'
-              }
-          });
+    	  
+    	  var transaction_id = data.id;
           
           var xhr = xhrManager.get(),
               strings = data.strings,
@@ -166,13 +160,19 @@
                   } else {
                       source.postMessage({
                           action: 'translate',
-                          data: translatedStrings
+                          data: {
+                        	  id: transaction_id,
+                        	  "translatedStrings": translatedStrings
+                          }
                       });
                       xhrManager.release( xhr );
                   }
               } else {
                   source.postMessage({
-                      action: 'fail'
+                      action: 'fail',
+                      data: {
+                    	  id: transaction_id
+                      }
                   });
                   xhrManager.release( xhr );
               }
