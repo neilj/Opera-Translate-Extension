@@ -125,17 +125,6 @@ var transactions = [], // stores translate transactions
     keyTriggers = {ctrl:false,shift:false},
     fromLang = { code: '', value: 'Unknown' };
     
-function cleanup () {}
-    
-function hideMessage () {
-    div.addEventListener( 'oTransitionEnd', function() {
-        document.body.removeChild( div );
-        div.removed = true;
-    }, true);
-    div.style.top = '-34px';
-    document.body.style.top = '0';
-}
-
 function createTransaction( target, inline ) {
 	var transaction_id = Math.floor(Math.random()*1e16);
 	
@@ -155,9 +144,19 @@ function createTransaction( target, inline ) {
 		translatedStrings: []
     };
     
-    opera.postError('Transaction created: ' + transaction_id);
-	
+    //opera.postError('Transaction created: ' + transaction_id);
 	return transaction_id;
+}
+
+function cleanup () {}
+    
+function hideMessage () {
+    div.addEventListener( 'oTransitionEnd', function() {
+        document.body.removeChild( div );
+        div.removed = true;
+    }, true);
+    div.style.top = '-34px';
+    document.body.style.top = '0';
 }
 
 function showMessage ( data ) {
@@ -322,8 +321,7 @@ function decodeEntities ( string, div ) {
 }
 
 function translate ( transaction_id, reset ) {
-	opera.postError('Transaction matched: ' + transaction_id);
-	
+	//opera.postError('Transaction matched: ' + transaction_id);
     var l = transactions[transaction_id].originalStrings.length,
         iterator = getIterator( transactions[transaction_id].target ),
         translatedStrings = (reset ? 
