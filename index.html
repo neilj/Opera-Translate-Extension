@@ -36,35 +36,20 @@
       return url;
   }
 
-  function getTranslatePackets ( strings, from, to ) {
-      var packets = [],
+  function getTranslatePacket ( strings, from, to ) {
+      var packet = 'v=1.0&langpair=' + from + '%7C' + to,
           i = 0,
           l = strings.length;
       while ( i < l ) {
-          // Set destination language
-          var packet = 'v=1.0&langpair=' + from + '%7C' + to;
-          var len = packet.length;
-
           for ( var segments = 0;
                   i < l && segments < 100; i += 1, segments += 1 ) {
-              var next = encodeURIComponent( strings[i] ),
-                  nextLen = next.length;
-              // If the text is too long, abort.
-              if ( nextLen > 4900 ) {
-                  return [];
-              }
-              // Google Translate requests have a 5000 character limit.
-              if ( len + nextLen > 4900 ) {
-                  break;
-              }
+              var next = encodeURIComponent( strings[i] );
               packet += '&q=';
               packet += next;
-              len += nextLen;
           }
-          packets.push( packet );
       }
-      
-      return packets;
+
+      return packet;
   }
 
   var actions = {
@@ -117,67 +102,62 @@
           };
           xhr.send();
       },
-      translate: function ( data, source ) {
+      translate: function ( data, source, retries ) {
     	  
     	  var transaction_id = data.id;
+          if(!retries) retries = 0;
           
-          var xhr = xhrManager.get(),
-              strings = data.strings,
+          var strings = data.strings,
               from = data.fromLang,
-              packets = getTranslatePackets( strings, from, homeLang ),
-              l = packets.length,
-              i = 0,
+              packet = getTranslatePacket( strings, from, homeLang ),
               translatedStrings = [];
 
-          function send () {
-              xhr.open( 'POST', 
-                'https://ajax.googleapis.com/ajax/services/language/translate',
-                 true );
-              xhr.setRequestHeader( 'Content-type', 
-                  'application/x-www-form-urlencoded' );
-              xhr.send( packets[i] );
-          }
-          
-          xhr.onreadystatechange = function () {
-              if ( xhr.readyState < 4 ) return;
-              var result = JSON.parse( xhr.responseText ),
-                  data = result.responseData;
-                  
-              if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
-                      result.responseStatus === 200 ) {
-                  if ( !( data instanceof Array ) ) {
-                      data = [ data ];
-                  }
-                  Array.prototype.push.apply( translatedStrings, data.map(
-                      function( item ) {
-                          return item.responseStatus === 200 ? 
-                              item.responseData.translatedText : null;
-                      }
-                  ) );
-                  i += 1;
-                  if ( i < l ) {
-                      setTimeout( send, 0 );
-                  } else {
+     	  var xhr = new XMLHttpRequest();
+
+     	  xhr.onreadystatechange = function () {
+               if ( xhr.readyState < 4 ) return;
+               var result = JSON.parse( xhr.responseText ),
+                   xhrData = result.responseData;
+               if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
+                       result.responseStatus === 200 ) {
+                   if ( !( xhrData instanceof Array ) ) {
+                	   xhrData = [ xhrData ];
+                   }
+                   Array.prototype.push.apply( translatedStrings, xhrData.map(
+                       function( item ) {
+                           return item.responseStatus === 200 ? 
+                               item.responseData.translatedText : null;
+                       }
+                   ) );
+                    source.postMessage({
+                        action: 'translate',
+                        data: {
+                      	  id: transaction_id,
+                      	  "translatedStrings": translatedStrings
+                        }
+                    });
+               } else {
+                   opera.postError('Translation failed [' + xhr.responseText + ']');
+                   if(retries < 4) {
+                     setTimeout( actions['translate'](data, source, retries+1), 800);
+                   } else {
                       source.postMessage({
-                          action: 'translate',
+                          action: 'fail',
                           data: {
-                        	  id: transaction_id,
-                        	  "translatedStrings": translatedStrings
+                        	  id: transaction_id
                           }
                       });
-                      xhrManager.release( xhr );
-                  }
-              } else {
-                  source.postMessage({
-                      action: 'fail',
-                      data: {
-                    	  id: transaction_id
-                      }
-                  });
-                  xhrManager.release( xhr );
-              }
-          };
-          send();
+                   }
+               }
+           };
+           
+           xhr.open( 'POST', 
+             'https://ajax.googleapis.com/ajax/services/language/translate',
+              true );
+           xhr.setRequestHeader( 'Content-type', 
+               'application/x-www-form-urlencoded' );
+           xhr.send( packet );
+
       },
       openPreferences: function ( data, source ) {
           opera.extension.tabs.create( { url: 'options.html', focused: true } );

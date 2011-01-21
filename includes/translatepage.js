@@ -114,32 +114,55 @@ function getIterator ( root ) {
 }() );
 
 var transactions = [], // stores translate transactions
-    contentHasChanged = false,
     isTranslated = false,
-    div,
-    label,
-    translateButton,
-    cancelButton,
-    closeButton,
-    optionsSelect,
+    initialTransactionsExpected = 0, transactionsReceived = 0,
+    div, label, 
+    translateButton, cancelButton, closeButton, optionsSelect,
+    DOMSnapshotIterator,
     keyTriggers = {ctrl:false,shift:false},
     fromLang = { code: '', value: 'Unknown' };
-    
-function createTransaction( target, inline ) {
-	var transaction_id = Math.floor(Math.random()*1e16);
+
+function createTransactions( target, inline ) {
+	var iterator = getIterator( target ),
+		transactionsList = [];
 	
-	var textnode,
-    	strings = [],
-        iterator = getIterator( target );
-    while ( ( textnode = iterator.nextNode() ) ) {
-        strings.push( textnode.textContent );
-    }
-    iterator.detach();
-    
+	function chunkTarget () {
+		var strings = [],
+			len = 24, // includes standard overhead 'v=1.0%26langpair=en%7Cto'
+			overheadContent = 5, // translation overhead per item '%26q='
+			textnode,
+			nodeList = [],
+			maxSegments = 100,
+			segments = 0;
+		
+		while ( ( textnode = iterator.nextNode() ) ) {
+			len += overheadContent + encodeURIComponent( textnode.textContent ).length;
+			if(len > 4000 || segments++ == maxSegments) break; // Google Translate chunking limits
+			nodeList.push( textnode );
+			strings.push( textnode.textContent );
+		}
+		var transactionId = createTransaction( nodeList, strings, inline );
+		transactionsList[ transactionId ] = transactions[ transactionId ];
+		if( iterator.nextNode() ) {
+			iterator.previousNode(); // back up one place 
+			chunkTarget();
+		}
+	}
+	
+	chunkTarget();
+	
+	iterator.detach();
+	
+	return transactionsList;
+}
+
+function createTransaction( nodeList, strings, inline ) {
+	var transaction_id = Math.floor(Math.random()*1e16);
+
     // Store transaction
     transactions[transaction_id] = { 
-		target: document.body, 
 		"inline": inline || false,
+		nodes: nodeList,
 		originalStrings: strings,
 		translatedStrings: []
     };
@@ -164,7 +187,8 @@ function showMessage ( data ) {
     fromLang = { code: data.langCode, value: data.language };
     
     // Collect strings before we modify the DOM
-	var transaction_id = createTransaction( document.body, false );
+    var initialTransactionIDs = createTransactions( document.body, false );
+    for(var i in initialTransactionIDs) initialTransactionsExpected++;
          
     div = Element.create( 'div', {
         style: 'color: #000; position: fixed; height: 24px; top: -34px; left: 0; right: 0; padding: 5px 10px; background: #CACDD5; color: #000; border-bottom: 1px solid #000; z-index: 999999999999; font: 12px/20px "Lucida Grande", Arial, sans-serif; text-align: left; -o-transition: top 0.3s ease-in-out;'
@@ -241,19 +265,25 @@ function showMessage ( data ) {
     
     translateButton.addEventListener( 'click', function () {
         if ( isTranslated ) {
-        	document.removeEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
-        	translate( transaction_id, true );
+        	// remove AJAX change listeners
+        	//document.removeEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
+        	//document.removeEventListener( 'DOMCharacterDataModified', ajaxTranslate, true );
+        	
+        	for(var transaction_id in initialTransactionIDs) 
+        		translate( transaction_id, true );
             cleanup();
             hideMessage();
         } else {
-    		opera.extension.postMessage( {
-                action: 'translate',
-                data: {
-                	id: transaction_id,
-                    strings: transactions[ transaction_id ].originalStrings,
-                    "fromLang": fromLang.code
-                }
-            });
+        	for(var transaction_id in initialTransactionIDs) {
+	    		opera.extension.postMessage( {
+	                action: 'translate',
+	                data: {
+	                	id: transaction_id,
+	                    strings: transactions[ transaction_id ].originalStrings,
+	                    "fromLang": fromLang.code
+	                }
+	            });
+        	}
             label.textContent = 'Translating page from ' + fromLang.value + "...";
             translateButton.style.display = 'none';
             cancelButton.style.visibility = 'hidden';
@@ -285,13 +315,6 @@ function showMessage ( data ) {
         div.style.top = '0';
     }, 0);    
     
-    // Make sure we know if there are changes before we receive the
-    // translation.
-    document.addEventListener( 'DOMCharacterDataModified', function c() {
-        contentHasChanged = true;
-        document.removeEventListener( 'DOMCharacterDataModified', c, true );
-    }, true );
-    
     // Add show/hide translate bar toggle
     document.addEventListener( 'keyup', function ( e ) {
     	keyTriggers.ctrl = keyTriggers.shift = false;
@@ -321,85 +344,83 @@ function decodeEntities ( string, div ) {
 }
 
 function translate ( transaction_id, reset ) {
-	//opera.postError('Transaction matched: ' + transaction_id);
-    var l = transactions[transaction_id].originalStrings.length,
-        iterator = getIterator( transactions[transaction_id].target ),
-        translatedStrings = (reset ? 
+    var translatedStrings = (reset ? 
         						transactions[transaction_id].originalStrings : 
         							transactions[transaction_id].translatedStrings),
-        temp = document.createElement( 'div' ),
-        textnode;
-    if ( !contentHasChanged || reset ) {
-        // Fast path
-        var i = 0;
-        while ( ( textnode = iterator.nextNode() ) && i < l ) {
-            if ( translatedStrings[i] ) {
-                textnode.textContent = decodeEntities( translatedStrings[i], temp );
-            }
-            i++;
-        }
-    } else {
-        // Safe path
-        var translated = {},
-            translation;
-        while ( l-- ) {
-            translation = translatedStrings[l];
-            if ( translation ) {
-                translated[ transactions[transaction_id].originalStrings[l] ] = translation;
-            }
-        }
-        while ( ( textnode = iterator.nextNode() ) ) {
-            translation = translated[ textnode.textContent ];
-            if ( translation ) {
-                textnode.textContent = decodeEntities( translation, temp );
-            }
-        }
+        l = translatedStrings.length,
+        temp = document.createElement( 'div' );
+    
+    if(!reset) transactionsReceived++;
+    
+  	for(var i = 0, l = transactions[ transaction_id ].nodes.length; i < l; i++ ) {
+   		transactions[ transaction_id ].nodes[ i ].textContent = decodeEntities( translatedStrings[ i ], temp );
+   	}
+    
+    //opera.postError("Initial transaction completion: " + transactionsReceived + " of " + initialTransactionsExpected);
+    
+    if(transactionsReceived >= initialTransactionsExpected) {
+        // Update bar to say it is translated.
+        label.textContent = 'This page has been translated from ' + fromLang.value;
+        translateButton.textContent = 'Show Original';
+        cancelButton.textContent = 'Done';
+        translateButton.style.display = '';
+        cancelButton.style.visibility = 'visible';
+        
+    	isTranslated = !reset;
+    	/*
+    	// Add AJAX Translate functionality
+    	if( isTranslated ) {
+    		if(DOMSnapshotIterator) DOMSnapshotIterator.detach();
+    		DOMSnapshotIterator = getIterator( document.body );
+    		
+        	//document.addEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
+        	document.addEventListener( 'DOMCharacterDataModified', ajaxTranslate, true );
+    	}*/
     }
-    
-    // Update bar to say it is translated.
-    label.textContent = 'This page has been translated from ' + fromLang.value;
-    translateButton.textContent = 'Show Original';
-    cancelButton.textContent = 'Done';
-    translateButton.style.display = '';
-    cancelButton.style.visibility = 'visible';
-    
-    isTranslated = !reset;
-    
-    // Insert AJAX change listener
-    if( isTranslated )
-    	document.addEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
 }
-
+/*
+// AJAX Translation Function
 function ajaxTranslate( evt ) {
 	
 	// Ignore content removal (attrChange REMOVAL is 3)
 	if( !isTranslated || evt.attrChange === 3 ) return;
 
-	var changeNode = evt.relatedNode,
-		textnode,
-		strings = [],
-		iterator = getIterator( changeNode );
+	//document.removeEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
+	document.removeEventListener( 'DOMCharacterDataModified', ajaxTranslate, true );
 	
-	while ( ( textnode = iterator.nextNode() ) ) {
-		strings.push( textnode.textContent );
-    }
-    iterator.detach();
+	// check if textContent has changed within the inserted nodes
+	var DOMChangedSnapshotIterator = getIterator( document.body ),
+		domModified = false,
+		textnode;
 	
-    // store the transaction
-    var transaction_id = createTransaction( changeNode, true );
-
-    // send request
-    opera.extension.postMessage({
-    	action: 'translate',
-    	data: {
-    		id: transaction_id,
-    		strings: transactions[transaction_id].originalStrings,
-    		"fromLang": fromLang.code
-    	}
-    });
-    
-    document.removeEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
+	while ( ( textnode = DOMChangedSnapshotIterator.nextNode() ) ) {
+		var compareNode = DOMSnapshotIterator.nextNode();
+		if( textnode.textContent !== compareNode.textContent ) {
+			domModified = true;
+			break;
+		}
+	}
+	
+	DOMChangedSnapshotIterator.detach();
+	
+	if( domModified ) {
+	    // get the chunked transactions
+	    var ajaxTransactionIDs = createTransactions( evt.relatedNode, true );
+	    
+	    // send transactions
+	    for(var transaction_id in ajaxTransactionIDs) {
+		    opera.extension.postMessage({
+		    	action: 'translate',
+		    	data: {
+		    		id: transaction_id,
+		    		strings: transactions[ transaction_id ].originalStrings,
+		    		"fromLang": fromLang.code
+		    	}
+		    });
+	    }
+	}
 }
+*/
 
 function fail ( transaction_id ) {
 	if( !transactions[transaction_id].inline ) {
