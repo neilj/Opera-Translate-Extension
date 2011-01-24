@@ -281,14 +281,16 @@ function showMessage ( data ) {
             hideMessage();
         } else {
         	for(var transaction_id in initialTransactionIDs) {
-	    		opera.extension.postMessage( {
-	                action: 'translate',
-	                data: {
-	                	id: transaction_id,
-	                    strings: transactions[ transaction_id ].originalStrings,
-	                    "fromLang": fromLang.code
-	                }
-	            });
+        		if( transactions[ transaction_id ].translatedStrings.length <= 0 ) {
+		    		opera.extension.postMessage( {
+		                action: 'translate',
+		                data: {
+		                	id: transaction_id,
+		                    strings: transactions[ transaction_id ].originalStrings,
+		                    "fromLang": fromLang.code
+		                }
+		            });
+        		}
         	}
             label.textContent = 'Translating page from ' + fromLang.value + "...";
             translateButton.style.display = 'none';
@@ -358,7 +360,8 @@ function translate ( transaction_id, reset ) {
         l = translatedStrings.length,
         temp = document.createElement( 'div' );
     
-    if(!reset) transactionsReceived++;
+    if(!reset) 
+    	transactionsReceived++;
     
   	for(var i = 0, l = transactions[ transaction_id ].nodes.length; i < l; i++ ) {
    		transactions[ transaction_id ].nodes[ i ].textContent = decodeEntities( translatedStrings[ i ], temp );
