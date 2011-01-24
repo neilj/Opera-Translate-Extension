@@ -121,7 +121,6 @@ var transactions = [], // stores translate transactions
     div, label, 
     translateButton, cancelButton, closeButton, optionsSelect,
     ajaxTranslator,
-    keyTriggers = {ctrl:false,shift:false},
     fromLang = { code: '', value: 'Unknown' };
 
 function createTransactions( target, inline ) {
@@ -322,28 +321,7 @@ function showMessage ( data ) {
         body.style.top = '34px';
         div.style.top = '0';
     }, 0);    
-    
-    // Add show/hide translate bar toggle
-    document.addEventListener( 'keyup', function ( e ) {
-    	keyTriggers.ctrl = keyTriggers.shift = false;
-    }, true);
-    
-    document.addEventListener( 'keydown', function ( e ) {
-    	if ( e.which === 17 ) { keyTriggers.ctrl = true; }
-    	if ( e.which === 16 ) { keyTriggers.shift = true; }
-    	if ( ( e.which === 88 &&
-    	    keyTriggers.ctrl === true && keyTriggers.shift === true )
-    			&& !div.removed) {
-    		if( div.style.top === '0px' ) {
-    			div.style.top = '-34px';
-    		    document.body.style.top = '0';
-    		} else {
-    			document.body.style.top = '34px';
-    	        div.style.top = '0';
-    		}
-    		return false;
-    	}
-    }, true );
+
 }
 
 function decodeEntities ( string, div ) {
