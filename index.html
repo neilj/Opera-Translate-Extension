@@ -102,10 +102,9 @@
           };
           xhr.send();
       },
-      translate: function ( data, source, retries ) {
+      translate: function ( data, source ) {
     	  
     	  var transaction_id = data.id;
-          if(!retries) retries = 0;
           
           var strings = data.strings,
               from = data.fromLang,
@@ -137,17 +136,12 @@
                         }
                     });
                } else {
-                   opera.postError('Translation failed [' + xhr.responseText + ']');
-                   if(retries < 4) {
-                     setTimeout( actions['translate'](data, source, retries+1), 800);
-                   } else {
                       source.postMessage({
                           action: 'fail',
                           data: {
                         	  id: transaction_id
                           }
                       });
-                   }
                }
                xhrManager.release( xhr );
            };

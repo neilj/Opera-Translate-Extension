@@ -380,7 +380,10 @@ function translate ( transaction_id, reset ) {
 
 // AJAX Translate functionality
 function nodeInserted( evt ) {
-	opera.postError('node inserted');
+	// Don't process Popup Statusbar Extension inserts:
+	if( evt.target.id == '_opera_extension_$_popup_statusbar_' )
+		return;
+	
     // get the chunked transactions
     var ajaxTransactionIDs = createTransactions( evt.target, true );
     
@@ -397,48 +400,9 @@ function nodeInserted( evt ) {
     }
 }
 
-/*
-// AJAX Translation Function
-function ajaxTranslate() {
-	opera.postError('Checking for AJAX changes...');
-	// check if textContent has changed within the inserted nodes
-	var DOMIterator = getIterator(),
-		domModified = false,
-		textnode;
-	
-	while ( ( textnode = DOMIterator.nextNode() ) ) {
-		if( textnode.translateDetected !== 'true' ) {
-			opera.postError('Found AJAX change...processing');
-			domModified = true;
-			break;
-		}
-	}
-	
-	DOMIterator.detach();
-	
-	if( domModified ) {
-	    // get the chunked transactions
-	    var ajaxTransactionIDs = createTransactions( document.body, true );
-	    
-	    // send transactions
-	    for(var transaction_id in ajaxTransactionIDs) {
-		    opera.extension.postMessage({
-		    	action: 'translate',
-		    	data: {
-		    		id: transaction_id,
-		    		strings: transactions[ transaction_id ].originalStrings,
-		    		"fromLang": fromLang.code
-		    	}
-		    });
-	    }
-	}
-	
-	ajaxTranslator = setTimeout(ajaxTranslate, 1000);
-}
-*/
 function fail ( transaction_id ) {
 	if( !transactions[transaction_id].inline ) {
-	    label.textContent = 'Oh dear! I\'m afraid the translation failed.';
+	    label.textContent = 'Oh dear! The translation could not be completed.';
 	    translateButton.textContent = 'Try again';
 	    cancelButton.textContent = 'Never mind';
 	    translateButton.style.display = '';
