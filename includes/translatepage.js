@@ -65,7 +65,7 @@ function getIterator ( root ) {
         acceptNode: function ( node ) {
             if ( /^\s*$/.test( node.textContent ) ||
                     node.parentNode.nodeType !== Node.ELEMENT_NODE ||
-                    	node.translateDetected) {
+                    	node.originalTextContent) {
                 return NodeFilter.FILTER_REJECT;
             }
             while ( ( node = node.parentNode ) !== target ) {
@@ -74,7 +74,6 @@ function getIterator ( root ) {
                     return NodeFilter.FILTER_REJECT;
                 }
             }
-            node.translateDetected = 'true';
             return NodeFilter.FILTER_ACCEPT;
         }
     }, false );
@@ -141,14 +140,17 @@ function createTransactions( target, inline ) {
 		while ( ( textnode = iterator.nextNode() ) ) {
 			len += overheadContent + encodeURIComponent( textnode.textContent ).length;
 			if(len > 4000 || segments++ == maxSegments) break; // Google Translate chunking limits
+			textnode.originalTextContent = textnode.textContent;
 			nodeList.push( textnode );
 			strings.push( textnode.textContent );
 		}
-		var transactionId = createTransaction( nodeList, strings, inline );
-		transactionsList[ transactionId ] = transactions[ transactionId ];
-		if( iterator.nextNode() ) {
-			iterator.previousNode(); // back up one place 
-			chunkTarget();
+		if( nodeList.length > 0 ) {
+			var transactionId = createTransaction( nodeList, strings, inline );
+			transactionsList[ transactionId ] = transactions[ transactionId ];
+			if( iterator.nextNode() ) {
+				iterator.previousNode(); // back up one place 
+				chunkTarget();
+			}
 		}
 	}
 	
@@ -382,7 +384,8 @@ function translate ( transaction_id, reset ) {
 // AJAX Translate functionality
 function nodeInserted( evt ) {
 	// Don't process Popup Statusbar Extension inserts:
-	if( evt.target.id == '_opera_extension_$_popup_statusbar_' )
+	if( evt.target.id == '_opera_extension_$_popup_statusbar_' ||
+			evt.target.id == '_opera_extension_$_popup_translatehover_')
 		return;
 	
     // get the chunked transactions
