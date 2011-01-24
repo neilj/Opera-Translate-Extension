@@ -52,8 +52,6 @@ var Element = {
     }
 };
 
-
-
 window.addEventListener( 'DOMContentLoaded', function () {
 
 // An iterator that returns all text nodes which do not just
@@ -65,7 +63,8 @@ function getIterator ( root ) {
     return document.createNodeIterator( target, NodeFilter.SHOW_TEXT, {
         acceptNode: function ( node ) {
             if ( /^\s*$/.test( node.textContent ) ||
-                    node.parentNode.nodeType !== Node.ELEMENT_NODE ) {
+                    node.parentNode.nodeType !== Node.ELEMENT_NODE ||
+                    	node.translateDetected) {
                 return NodeFilter.FILTER_REJECT;
             }
             while ( ( node = node.parentNode ) !== target ) {
@@ -74,6 +73,7 @@ function getIterator ( root ) {
                     return NodeFilter.FILTER_REJECT;
                 }
             }
+            node.translateDetected = 'true';
             return NodeFilter.FILTER_ACCEPT;
         }
     }, false );
@@ -104,13 +104,15 @@ function getIterator ( root ) {
             .replace(/\s\s*/g, ' ')
             .slice( 0, 800 );
     }
-    opera.extension.postMessage({
-        action: 'analyse',
-        data: {
-    		text: text.slice( 0, 800 ),
-    		protocol: window.location.protocol
-    	}
-    });
+    if( text.length >= 400 ) {
+	    opera.extension.postMessage({
+	        action: 'analyse',
+	        data: {
+	    		text: text.slice( 0, (text.length>800 ? 800 : text.length) ),
+	    		protocol: window.location.protocol
+	    	}
+	    });
+    }
 }() );
 
 var transactions = [], // stores translate transactions
@@ -118,7 +120,7 @@ var transactions = [], // stores translate transactions
     initialTransactionsExpected = 0, transactionsReceived = 0,
     div, label, 
     translateButton, cancelButton, closeButton, optionsSelect,
-    DOMSnapshotIterator,
+    ajaxTranslator,
     keyTriggers = {ctrl:false,shift:false},
     fromLang = { code: '', value: 'Unknown' };
 
@@ -171,7 +173,9 @@ function createTransaction( nodeList, strings, inline ) {
 	return transaction_id;
 }
 
-function cleanup () {}
+function cleanup () {
+	transactions = [];
+}
     
 function hideMessage () {
     div.addEventListener( 'oTransitionEnd', function() {
@@ -265,11 +269,10 @@ function showMessage ( data ) {
     
     translateButton.addEventListener( 'click', function () {
         if ( isTranslated ) {
-        	// remove AJAX change listeners
-        	//document.removeEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
-        	//document.removeEventListener( 'DOMCharacterDataModified', ajaxTranslate, true );
+        	// remove AJAX change listener
+        	document.removeEventListener('DOMNodeInserted', nodeInserted, false);
         	
-        	for(var transaction_id in initialTransactionIDs) 
+        	for(var transaction_id in transactions) 
         		translate( transaction_id, true );
             cleanup();
             hideMessage();
@@ -344,6 +347,8 @@ function decodeEntities ( string, div ) {
 }
 
 function translate ( transaction_id, reset ) {
+	document.removeEventListener('DOMNodeInserted', nodeInserted, false);
+	
     var translatedStrings = (reset ? 
         						transactions[transaction_id].originalStrings : 
         							transactions[transaction_id].translatedStrings),
@@ -358,7 +363,7 @@ function translate ( transaction_id, reset ) {
     
     //opera.postError("Initial transaction completion: " + transactionsReceived + " of " + initialTransactionsExpected);
     
-    if(transactionsReceived >= initialTransactionsExpected) {
+    if(transactionsReceived == initialTransactionsExpected) {
         // Update bar to say it is translated.
         label.textContent = 'This page has been translated from ' + fromLang.value;
         translateButton.textContent = 'Show Original';
@@ -367,45 +372,53 @@ function translate ( transaction_id, reset ) {
         cancelButton.style.visibility = 'visible';
         
     	isTranslated = !reset;
-    	/*
-    	// Add AJAX Translate functionality
-    	if( isTranslated ) {
-    		if(DOMSnapshotIterator) DOMSnapshotIterator.detach();
-    		DOMSnapshotIterator = getIterator( document.body );
-    		
-        	//document.addEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
-        	document.addEventListener( 'DOMCharacterDataModified', ajaxTranslate, true );
-    	}*/
+    }
+    if(transactionsReceived >= initialTransactionsExpected) {
+    	document.addEventListener('DOMNodeInserted', nodeInserted, false);
     }
 }
+
+// AJAX Translate functionality
+function nodeInserted( evt ) {
+	opera.postError('node inserted');
+    // get the chunked transactions
+    var ajaxTransactionIDs = createTransactions( evt.target, true );
+    
+    // send transactions
+    for(var transaction_id in ajaxTransactionIDs) {
+	    opera.extension.postMessage({
+	    	action: 'translate',
+	    	data: {
+	    		id: transaction_id,
+	    		strings: transactions[ transaction_id ].originalStrings,
+	    		"fromLang": fromLang.code
+	    	}
+	    });
+    }
+}
+
 /*
 // AJAX Translation Function
-function ajaxTranslate( evt ) {
-	
-	// Ignore content removal (attrChange REMOVAL is 3)
-	if( !isTranslated || evt.attrChange === 3 ) return;
-
-	//document.removeEventListener( 'DOMNodeInsertedIntoDocument', ajaxTranslate, true );
-	document.removeEventListener( 'DOMCharacterDataModified', ajaxTranslate, true );
-	
+function ajaxTranslate() {
+	opera.postError('Checking for AJAX changes...');
 	// check if textContent has changed within the inserted nodes
-	var DOMChangedSnapshotIterator = getIterator( document.body ),
+	var DOMIterator = getIterator(),
 		domModified = false,
 		textnode;
 	
-	while ( ( textnode = DOMChangedSnapshotIterator.nextNode() ) ) {
-		var compareNode = DOMSnapshotIterator.nextNode();
-		if( textnode.textContent !== compareNode.textContent ) {
+	while ( ( textnode = DOMIterator.nextNode() ) ) {
+		if( textnode.translateDetected !== 'true' ) {
+			opera.postError('Found AJAX change...processing');
 			domModified = true;
 			break;
 		}
 	}
 	
-	DOMChangedSnapshotIterator.detach();
+	DOMIterator.detach();
 	
 	if( domModified ) {
 	    // get the chunked transactions
-	    var ajaxTransactionIDs = createTransactions( evt.relatedNode, true );
+	    var ajaxTransactionIDs = createTransactions( document.body, true );
 	    
 	    // send transactions
 	    for(var transaction_id in ajaxTransactionIDs) {
@@ -419,9 +432,10 @@ function ajaxTranslate( evt ) {
 		    });
 	    }
 	}
+	
+	ajaxTranslator = setTimeout(ajaxTranslate, 1000);
 }
 */
-
 function fail ( transaction_id ) {
 	if( !transactions[transaction_id].inline ) {
 	    label.textContent = 'Oh dear! I\'m afraid the translation failed.';

@@ -112,7 +112,7 @@
               packet = getTranslatePacket( strings, from, homeLang ),
               translatedStrings = [];
 
-     	  var xhr = new XMLHttpRequest();
+     	  var xhr = xhrManager.get();
 
      	  xhr.onreadystatechange = function () {
                if ( xhr.readyState < 4 ) return;
@@ -149,6 +149,7 @@
                       });
                    }
                }
+               xhrManager.release( xhr );
            };
            
            xhr.open( 'POST', 
