@@ -3,7 +3,7 @@
 <head>
     <script type="text/javascript" src="lib.js" charset="utf-8"></script>
     <script type="text/javascript">
-( function() {
+( function () {
 
   var storage = localStorage;
 
@@ -54,7 +54,8 @@
 
   var actions = {
       analyse: function ( data, source ) {
-          if ( data.protocol === 'https:' && storage.getItem( 'https' ) !== '1' ) {
+          if ( data.protocol === 'https:' &&
+				storage.getItem( 'https' ) !== '1' ) {
         	  source.postMessage({
                   action: 'analysisFailed'
               });
@@ -67,7 +68,8 @@
               var result = JSON.parse( xhr.responseText ),
                   data = result.responseData;
               if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
-                      ( result.responseStatus === 200 && data.confidence > 0.15 ) ) {
+              		( result.responseStatus === 200 &&
+						data.confidence > 0.15 ) ) {
                   var language = data.language;
                   if ( language !== homeLang ) {
                       var langPref = storage.getItem( language ) || 'ask';
@@ -104,14 +106,12 @@
       },
       translate: function ( data, source ) {
     	  
-    	  var transaction_id = data.id;
-          
-          var strings = data.strings,
+    	  var transactionId = data.id,
+		  	  strings = data.strings,
               from = data.fromLang,
               packet = getTranslatePacket( strings, from, homeLang ),
-              translatedStrings = [];
-
-     	  var xhr = xhrManager.get();
+              translatedStrings = [],
+			  xhr = xhrManager.get();
 
      	  xhr.onreadystatechange = function () {
                if ( xhr.readyState < 4 ) return;
@@ -123,7 +123,7 @@
                 	   xhrData = [ xhrData ];
                    }
                    Array.prototype.push.apply( translatedStrings, xhrData.map(
-                       function( item ) {
+                       function ( item ) {
                            return item.responseStatus === 200 ? 
                                item.responseData.translatedText : null;
                        }
@@ -131,15 +131,15 @@
                     source.postMessage({
                         action: 'translate',
                         data: {
-                      	  id: transaction_id,
-                      	  "translatedStrings": translatedStrings
+                      	  id: transactionId,
+                      	  translatedStrings: translatedStrings
                         }
                     });
                } else {
                       source.postMessage({
                           action: 'fail',
                           data: {
-                        	  id: transaction_id
+                        	  id: transactionId
                           }
                       });
                }
@@ -177,7 +177,7 @@
               action: 'preferencesReset'
           });
       }, 	
-      setHomeLang: function( data, source ) {
+      setHomeLang: function ( data, source ) {
           homeLang = data;
           storage.setItem( 'homeLang', data );
       }

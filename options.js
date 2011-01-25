@@ -63,12 +63,15 @@ window.addEventListener( 'DOMContentLoaded', function () {
             ( Translate.languages[ browserLang ] ? browserLang : 'en' );
 
     // 1. Create the options
+    var homeLangOptions = document.createDocumentFragment();
+    var optListOptions = document.createDocumentFragment();
+    
     for ( var lang in Translate.languages ) {
 
         var pref = storage.getItem( lang ) || 'ask',
             language = Translate.languages[ lang ];
 
-        homeLangSelect.appendChild( Element.create( 'option', {
+        homeLangOptions.appendChild( Element.create( 'option', {
             text: language,
             value: lang,
             selected: homeLang === lang ? 'selected' : null
@@ -101,8 +104,11 @@ window.addEventListener( 'DOMContentLoaded', function () {
         // listen for changes
         optionsSelect.addEventListener( 'change', optionChanged, true );
 
-        optList.appendChild( langSettings );
+        optListOptions.appendChild( langSettings );
     }
+    homeLangSelect.appendChild( homeLangOptions );
+    optList.appendChild( optListOptions );
+    
     homeLangSelect.addEventListener( 'change', function() {
         opera.extension.postMessage({
             action: 'setHomeLang',
