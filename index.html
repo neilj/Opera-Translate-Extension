@@ -1,7 +1,9 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-    <script type="text/javascript" src="lib.js" charset="utf-8"></script>
+    <script type="text/javascript" src="lib/messages.js"></script>
+    <script type="text/javascript" src="lib/i18n_lib.js"></script>
+    <script type="text/javascript" src="lib/langs.js"></script>
     <script type="text/javascript">
 ( function () {
 
@@ -185,7 +187,8 @@
 
   window.addEventListener( 'load', function () {
       opera.extension.addEventListener( 'message', function ( msg ) {
-          actions[ msg.data.action ]( msg.data.data, msg.source );
+          if( actions[ msg.data.action ] )
+            actions[ msg.data.action ]( msg.data.data, msg.source );
       }, false );
   }, false );
 
