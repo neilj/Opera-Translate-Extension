@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets" id="https://addons.labs.opera.com/addons/extensions/details/translate/" version="1.5">
   <name>Translate</name>
   <description>Access the whole web: this extension uses Google Translate to detect the language of each page you visit and offer to translate it into your native language.</description>
-  <author email="neilj@opera.com">Neil Jenkins and Rich Tibbett</author>
-  <icon src="icon_64x64.png"/>
+  <author href="http://my.opera.com/richtr/blog/2011/01/25/opera-translate-extension-support-page">Neil Jenkins and Rich Tibbett</author>
+  <icon src="icons/icon_64x64.png"/>
   <access origin="https://ajax.googleapis.com"/>
 </widget>
