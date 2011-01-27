@@ -142,10 +142,20 @@ function getIterator ( root ) {
 }
 
 window.addEventListener( 'DOMContentLoaded', function () {
-    
-// 1. Check the language of the page.
-( function () {
+
+var officialTranslationDetected;	
 	
+function analyse( data ) {
+
+	// Try to detect an official translation then advertise that
+	var homeLangCode = data.homeLangCode || 'en',
+		officialTranslationEls = document.querySelectorAll( 'link[href][hreflang=' + homeLangCode + '][rel=alternate],a[href][hreflang=' + homeLangCode + '][rel=alternate]' );
+	if( officialTranslationEls.length > 0 && officialTranslationEls.item(0).href ) {
+		data.href = officialTranslationEls.item( 0 ).href;
+		officialTranslationDetected = data;
+	}
+	
+	// Analyse the page language
     var text = '';
 	
 	function getContent( type ) {
@@ -176,8 +186,8 @@ window.addEventListener( 'DOMContentLoaded', function () {
 	    		protocol: window.location.protocol
 	    	}
 	    });
-    }
-}() );
+    }	
+}
 
 var transactions = [], // stores translate transactions
     initialTransactionsExpected = 0,
@@ -315,6 +325,71 @@ function hideMessage () {
     document.body.style.top = '0';
 }
 
+
+function buildTranslateBar( ) {
+
+    var bar = Element.create( 'div', {
+        style: 'color: #000; position: fixed; height: 24px; top: -34px; left: 0; right: 0; padding: 5px 10px; background: url(' + imgLogo + ') no-repeat 10px 4px #CACDD5; color: #000; border-bottom: 1px solid #000; z-index: 999999999999; font: 12px/20px "Lucida Grande", Arial, sans-serif; text-align: left; -o-transition: top 0.3s ease-in-out;'
+    }, [
+        closeButton = Element.create( 'div', {
+            text: 'X',
+            style: 'position: absolute; right: 10px; top: 7px; padding: 1px 4px; color: #EEE; font: 10px "Lucida Grande", Arial, sans-serif; cursor: pointer; border: 1px solid #666; background-color: #666;' 
+        })
+      ]);
+
+    closeButton.addEventListener( 'click', function () {
+        cleanup();
+        hideMessage();
+    }, false );
+    
+    return bar;
+}
+
+function showPreMessage ( data ) {
+	
+	div = buildTranslateBar();
+	
+	div.appendChild(
+		label = Element.create( 'span', {
+            style: 'padding: 0; padding-left: 34px; margin: 0 8px 0 0;',
+            text: opera.extension.i18n.getMessage('official_translation_available_status', [ opera.extension.i18n.getMessage( data.homeLanguage ) ])
+        })		
+	);
+	div.appendChild(
+		translateButton = Element.create( 'button', {
+            text: opera.extension.i18n.getMessage('translation_do_translate_button'),
+            style: 'padding: 1px 5px; margin: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;font: 12px/20px "Lucida Grande", Arial, sans-serif;'
+        })	
+    );
+	div.appendChild(
+		cancelButton = Element.create( 'button', {
+            text: opera.extension.i18n.getMessage('translation_do_not_translate_button'),
+            style: 'padding: 1px 5px; margin-right: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;font: 12px/20px "Lucida Grande", Arial, sans-serif;'
+        })
+    );
+	
+	translateButton.addEventListener( 'click', function () {
+		// Redirect the page to the official translation link
+		document.location.href = data.href;
+    }, false );
+	
+	cancelButton.addEventListener( 'click', function () {
+        cleanup();
+        hideMessage();
+    }, false );
+	
+    var body = document.body;
+    body.style.position = 'relative';
+    body.style.OTransition = 'top 0.3s ease-in-out';
+    body.appendChild( div );
+    
+    setTimeout( function() {
+        body.style.top = '34px';
+        div.style.top = '0';
+    }, 0); 	
+	
+}
+
 function showMessage ( data ) {
 
     fromLang = { code: data.langCode, value: data.language };
@@ -322,24 +397,28 @@ function showMessage ( data ) {
     // Collect strings before we modify the DOM
     var initialTransactions = createTransactions( document.body, false );
     initialTransactionsExpected = initialTransactions.length;
-         
-    div = Element.create( 'div', {
-        style: 'color: #000; position: fixed; height: 24px; top: -34px; left: 0; right: 0; padding: 5px 10px; background: url(' + imgLogo + ') no-repeat 10px 4px #CACDD5; color: #000; border-bottom: 1px solid #000; z-index: 999999999999; font: 12px/20px "Lucida Grande", Arial, sans-serif; text-align: left; -o-transition: top 0.3s ease-in-out;'
-    }, [
-        label = Element.create( 'span', {
+    
+    div = buildTranslateBar();
+    div.appendChild(
+		label = Element.create( 'span', {
             style: 'padding: 0; padding-left: 34px; margin: 0 8px 0 0;',
             text: opera.extension.i18n.getMessage('translation_available_status', [ opera.extension.i18n.getMessage( fromLang.code ) ])
-        }),
-    
-        translateButton = Element.create( 'button', {
+        })	
+    );
+    div.appendChild(
+		translateButton = Element.create( 'button', {
             text: opera.extension.i18n.getMessage('translation_do_translate_button'),
             style: 'padding: 1px 5px; margin: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;font: 12px/20px "Lucida Grande", Arial, sans-serif;'
-        }),
-        cancelButton = Element.create( 'button', {
+        })	
+    );
+    div.appendChild(
+		cancelButton = Element.create( 'button', {
             text: opera.extension.i18n.getMessage('translation_do_not_translate_button'),
             style: 'padding: 1px 5px; margin-right: 0 8px 0 0; border: 1px solid #888; border-radius: 5px; background: #eee url(' + btnGrad + ') repeat-x; display: inline; text-shadow: 1px 1px 1px #ddd;font: 12px/20px "Lucida Grande", Arial, sans-serif;'
-        }),
-        optionsSelect = Element.create( 'select', {
+        })
+    );
+    div.appendChild(
+		optionsSelect = Element.create( 'select', {
             style:
                 'position: absolute; right: 36px; top: 6px; padding: 2px 0; font: 12px/20px "Lucida Grande", Arial, sans-serif; text-align: left; color: #000;'
         }, [
@@ -372,12 +451,8 @@ function showMessage ( data ) {
                 value: 'more'
             })
         ] 
-      ),
-      closeButton = Element.create( 'div', {
-          text: 'X',
-          style: 'position: absolute; right: 10px; top: 7px; padding: 1px 4px; color: #EEE; font: 10px "Lucida Grande", Arial, sans-serif; cursor: pointer; border: 1px solid #666; background-color: #666;' 
-      }),
-    ]);
+      )
+    );
     
     optionsSelect.addEventListener( 'change', function () {
     	if ( optionsSelect.value === 'more' ) {
@@ -434,11 +509,6 @@ function showMessage ( data ) {
         hideMessage();
     }, false );
     
-    closeButton.addEventListener( 'click', function () {
-        cleanup();
-        hideMessage();
-    }, false );
-    
     // Auto-translate.
     if ( data.preference === 'always' ) {
         translateButton.click();
@@ -469,6 +539,9 @@ function fail ( transactionId ) {
 opera.extension.addEventListener( 'message', function( message ) {
     var data = message.data.data;
     switch ( message.data.action ) {
+    	case 'analyse':
+    		analyse( data );
+    		break;
         case 'analysisFailed':
             cleanup();
             break;
@@ -476,7 +549,11 @@ opera.extension.addEventListener( 'message', function( message ) {
             cleanup();
             break;
         case 'showMessage':
-            showMessage( data );
+        	if( officialTranslationDetected ) {
+        		showPreMessage( officialTranslationDetected );
+        	} else {
+        		showMessage( data );
+        	}
             break;
         case 'translate':
             var id = data.id;
@@ -488,6 +565,14 @@ opera.extension.addEventListener( 'message', function( message ) {
             break;              
     }
 }, false );
+
+// Start the extension translation detection process
+( function () {
+	opera.extension.postMessage({
+        action: 'start',
+        data: {}
+    });
+}() );
 
 }, false );
 

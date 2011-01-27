@@ -55,6 +55,15 @@
   }
 
   var actions = {
+      start: function ( data, source ) {
+         source.postMessage({
+            action: 'analyse',
+            data: {
+               homeLanguage: Translate.languages[ homeLang ],
+               homeLangCode: homeLang
+            }
+         });
+      },	
       analyse: function ( data, source ) {
           if ( data.protocol === 'https:' &&
 				storage.getItem( 'https' ) !== '1' ) {
@@ -178,7 +187,7 @@
           source.postMessage({
               action: 'preferencesReset'
           });
-      }, 	
+      }, 
       setHomeLang: function ( data, source ) {
           homeLang = data;
           storage.setItem( 'homeLang', data );
