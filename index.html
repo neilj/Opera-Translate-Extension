@@ -82,6 +82,7 @@
               		( result.responseStatus === 200 &&
 						data.confidence > 0.15 ) ) {
                   var language = data.language;
+                  //opera.postError('Detected ' + Translate.languages[ language ] + ' (' + Math.round(data.confidence*100) + '% confidence)');
                   if ( language !== homeLang ) {
                       var langPref = storage.getItem( language ) || 'ask';
                       if ( langPref === 'never' ) {
@@ -136,7 +137,7 @@
                    Array.prototype.push.apply( translatedStrings, xhrData.map(
                        function ( item ) {
                            return item.responseStatus === 200 ? 
-                               item.responseData.translatedText : null;
+                               item.responseData.translatedText + " " : null;
                        }
                    ) );
                     source.postMessage({
@@ -200,7 +201,7 @@
             actions[ msg.data.action ]( msg.data.data, msg.source );
       }, false );
   }, false );
-
+  
 }() );
   </script>
 </head>
