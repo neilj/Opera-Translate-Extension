@@ -94,7 +94,7 @@ window.addEventListener( 'DOMContentLoaded', function () {
                     value: 'ask',
                     selected: pref === 'ask' ? 'selected' : null
                 }), Element.create( 'option', {
-                    text: 'Never translate ' + language,
+                    text: 'Never ask to translate ' + language,
                     value: 'never',
                     selected: pref === 'never' ? 'selected' : null
                 })
@@ -127,6 +127,15 @@ window.addEventListener( 'DOMContentLoaded', function () {
             action: 'blanketPreferences',
             data: {
             	value: 'always'
+            }
+        });
+    }, false );
+    document.getElementById( 'blanketPreferencesOff' ).addEventListener(
+            'click', function () {
+        opera.extension.postMessage({
+            action: 'blanketPreferences',
+            data: {
+            	value: 'never'
             }
         });
     }, false );

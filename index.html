@@ -64,7 +64,7 @@
           var xhr = xhrManager.get();
           xhr.open( 'GET', getAnalysisUrl( data.text ), true );
           xhr.onreadystatechange = function () {
-              if ( xhr.readyState < 4 ) return;
+              if ( xhr.readyState < 4 ) { return; }
               var result = JSON.parse( xhr.responseText ),
                   data = result.responseData;
               if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
@@ -114,7 +114,7 @@
 			  xhr = xhrManager.get();
 
      	  xhr.onreadystatechange = function () {
-               if ( xhr.readyState < 4 ) return;
+               if ( xhr.readyState < 4 ) { return; }
                var result = JSON.parse( xhr.responseText ),
                    xhrData = result.responseData;
                if ( ( xhr.status >= 200 && xhr.status < 300 ) &&
@@ -171,7 +171,7 @@
       },
       blanketPreferences: function ( data, source ) {
           for ( var lang in Translate.languages ) {
-        	storage.setItem( lang, data.value );
+        	    storage.setItem( lang, data.value );
           }
           source.postMessage({
               action: 'preferencesReset'
